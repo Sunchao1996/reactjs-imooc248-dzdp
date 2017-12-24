@@ -1,0 +1,428 @@
+【注意】
+windows运行时修改内容：慕课网笔记
+
+一、搭建开发环境：
+    1.使用cnpm init初始化创建package.json
+    2.安装插件：cnpm install --save-dev .....  安装到package.json中的devDependencies中仅用于开发，在引用的时候不会被npm
+               cnpm install --save  ...安装到package.json中的dependencies里面上线之后也需要使用的依赖，在引用的时候npm自动对此依赖下载
+               在package.json已经写好的时候，使用cnpm install就能对引用的所有依赖进行下载
+    3.webpack配置：
+                1).webpack.config.js配置文件
+                require('...')去package.json中的依赖中找到对应的依赖，然后在node_modules中找到对应依赖的package.json中的main属性，然后找到对应的文件
+                var path = require('path')
+                var webpack = require('webpack')
+                var HtmlWebpackPlugin = require('html-webpack-plugin');
+                var ExtractTextPlugin = require('extract-text-webpack-plugin');
+                var OpenBrowserPlugin = require('open-browser-webpack-plugin');
+
+                // var nodeModulesPath = path.resolve(__dirname, 'node_modules')
+                // console.log(process.env.NODE_ENV)
+
+                module.exports = {
+                    entry: path.resolve(__dirname, 'app/userinfo.jsx'),
+                    output: {
+                        path: __dirname + "/build",
+                        filename: "bundle.js"
+                    },
+
+                    resolve:{
+                        extensions:['', '.js','.jsx']
+                    },
+
+                    module: {
+                        loaders: [
+                            { test: /\.(js|jsx)$/, exclude: /node_modules/, loader: 'babel' },
+                            { test: /\.less$/, exclude: /node_modules/, loader: 'style!css!postcss!less' },
+                            { test: /\.css$/, exclude: /node_modules/, loader: 'style!css!postcss' },
+                            { test:/\.(png|gif|jpg|jpeg|bmp)$/i, loader:'url-loader?limit=5000' },  // 限制大小5kb
+                            { test:/\.(png|woff|woff2|svg|ttf|eot)($|\?)/i, loader:'url-loader?limit=5000'} // 限制大小小于5k
+                        ]
+                    },
+
+                    eslint: {
+                        configFile: '.eslintrc' // Rules for eslint
+                    },
+                    //使用autoprefixer对不同浏览器的css样式进行不同的而处理
+                    postcss: [
+                        require('autoprefixer') //调用autoprefixer插件，例如 display: flex
+                    ],
+
+                    plugins: [
+                        // html 模板插件，将编译之后的文件引用添加到template指定的模板文件中
+                        new HtmlWebpackPlugin({
+                            template: __dirname + '/app/index.tmpl.html'
+                        }),
+
+                        // 热加载插件
+                        new webpack.HotModuleReplacementPlugin(),
+
+                        // 打开浏览器
+                        new OpenBrowserPlugin({
+                          url: 'http://localhost:8080'
+                        }),
+
+                        // 在前端插入全局变量
+                        // 可在业务 js 代码中使用 __DEV__ 判断是否是dev模式（dev模式下可以提示错误、测试报告等, production模式不提示）
+                        new webpack.DefinePlugin({
+                          __DEV__: JSON.stringify(JSON.parse((process.env.NODE_ENV == 'dev') || 'false'))
+                        })
+                    ],
+
+                    devServer: {
+                        colors: true, //终端中输出结果为彩色
+                        historyApiFallback: true, //不跳转，单页面应用时非常有用，依赖于HTML 5的history
+                        inline: true, //实时刷新
+                        hot: true  // 使用热加载插件 HotModuleReplacementPlugin，依赖于plugin中的HotModuleReplacementPlugin
+                    }
+                }
+
+                2).webpack.production.config.js配置文件
+                var path = require('path')
+                var webpack = require('webpack');
+                var HtmlWebpackPlugin = require('html-webpack-plugin');
+                var ExtractTextPlugin = require('extract-text-webpack-plugin');
+
+                module.exports = {
+                  entry: {
+                    app: path.resolve(__dirname, 'app/userinfo.jsx'),
+                    // 将 第三方依赖 单独打包 将package.json中dependencies中的依赖打包到vendor.js中
+                    vendor: Object.keys(pkg.dependencies)
+                  },
+                  output: {
+                    path: __dirname + "/build",//发布的文件夹
+                    filename: "/js/[name].[chunkhash:8].js",//发布的文件名
+                  },
+                  //省略后缀名引用
+                  resolve:{
+                      extensions:['', '.js','.jsx']
+                  },
+
+                  module: {
+                    loaders: [
+                        { test: /\.(js|jsx)$/, exclude: /node_modules/, loader: 'babel' },
+                        //ExtractTextPlugin对css文件分离
+                        { test: /\.less$/, exclude: /node_modules/, loader: ExtractTextPlugin.extract('style', 'css!postcss!less') },
+                        { test: /\.css$/, exclude: /node_modules/, loader: ExtractTextPlugin.extract('style', 'css!postcss') },
+                        //将字体和图片放到不同文件夹
+                        { test:/\.(png|gif|jpg|jpeg|bmp)$/i, loader:'url-loader?limit=5000&name=img/[name].[chunkhash:8].[ext]' },
+                        { test:/\.(png|woff|woff2|svg|ttf|eot)($|\?)/i, loader:'url-loader?limit=5000&name=fonts/[name].[chunkhash:8].[ext]'}
+                    ]
+                  },
+                  postcss: [
+                    require('autoprefixer')
+                  ],
+
+                  plugins: [
+                    // webpack 内置的 banner-plugin，产权等标注，打包之后在文件的最开始显示
+                    new webpack.BannerPlugin("Copyright by wangfupeng1988@github.com."),
+
+                    // html 模板插件
+                    new HtmlWebpackPlugin({
+                        template: __dirname + '/app/index.tmpl.html'
+                    }),
+
+                    // 定义为生产环境，编译 React 时压缩到最小,process.env赋值在package.json的script的build中
+                    new webpack.DefinePlugin({
+                      'process.env':{
+                        'NODE_ENV': JSON.stringify(process.env.NODE_ENV)
+                      }
+                    }),
+
+                    // 为组件分配ID，通过这个插件webpack可以分析和优先考虑使用最多的模块，并为它们分配最小的ID
+                    new webpack.optimize.OccurenceOrderPlugin(),
+
+                    //代码压缩
+                    new webpack.optimize.UglifyJsPlugin({
+                        compress: {
+                          //supresses warnings, usually from module minification去掉所有警告
+                          warnings: false
+                        }
+                    }),
+
+                    // 分离出CSS文件
+                    new ExtractTextPlugin('/css/[name].[chunkhash:8].css'),
+
+                    // 提供公共代码存放位置
+                    new webpack.optimize.CommonsChunkPlugin({
+                      name: 'vendor',
+                      filename: '/js/[name].[chunkhash:8].js'
+                    }),
+
+                    // 可在业务 js 代码中使用 __DEV__ 判断是否是dev模式（dev模式下可以提示错误、测试报告等, production模式不提示）
+                    new webpack.DefinePlugin({
+                      __DEV__: JSON.stringify(JSON.parse((process.env.NODE_ENV == 'dev') || 'false'))
+                    })
+                  ]
+                }
+二、React基础知识
+    1.事件
+        如果在声明的事件中使用this对象之前需要将事件绑定到当前对象
+        e.preventDefault()阻止默认行为
+    2.循环
+        jsx中将数组显示出来使用{array}此处的array返回的每个数据应该是一个标签
+        array.map(function(item,index){
+            //同一个级别下通过循环返回的若干节点需要指定key，提高效率
+            return <li key={index}>{item}</li>
+        })
+    3.代码分离
+        1).文件结构
+        ./
+        --app
+          |--components  //组件层 通用的
+            |--Header
+                |--img  //组件的内容
+                |--userinfo.jsx //通用组件入口
+          |--containers  //页面层（每个文件夹都是个页面）
+            |--Hello  //hello页面
+                |--subpage  //子页面页面内容
+                    |--List.jsx  //子页面文件
+                |--userinfo.jsx  //hello页面入口
+          |--static
+          |--util
+          |--userinfo.jsx  //入口文件 引用页面
+          |--index.tmpl.html
+        --build
+        --docs
+        --mock
+        --node_modules
+        --.babelrc
+        --.gitignore
+        --package.json
+        --webpack.config.js
+        --webpack.production.config.js
+    4.props和state（数据传递和数据变化）
+        1).尽量不修改props
+        2).constructor(props,context){
+            super(props,context);
+            this.state={
+               now:Date.now(),
+            }
+           }
+    5.智能组件和木偶组件
+        1).智能组件：containers文件夹，聪明的，掌握数据的控制权，定义展示规则
+        2).木偶组件：components文件夹，傻的，只负责展示，获得什么数据就展示什么数据
+    6.生命周期
+        //负责返回页面显示内容
+        render(){
+        }
+        //ES4,ES5使用的初始化state的函数
+        getIntialState(){
+        }
+        //模板在页面上渲染完成之后调用
+        componentDidMount(){
+        }
+        //主要用于性能优化，React的性能优化也是一个很重要的话题
+        shouldComponentUpdate(){
+            return true/false;
+        }
+        //触发更新完成之后调用，props或者state变化的时候会触发
+        componentDidUpdate(){
+        }
+        //组件即将消失的时候调用，清空一些setTimeout、setInterval等
+        componentWillUnmount(){
+        }
+四、React性能优化
+    1.性能检测：安装react性能检测工具cnpm i react-addons-perf --save
+        在入口文件添加
+            // 性能测试
+            import Perf from 'react-addons-perf'
+            if (__DEV__) {//表示如果是开发环境下执行以下代码
+                window.Perf = Perf
+            }
+        在浏览器控制台使用：
+            Perf.start();在操作之前运行，开始检测，然后进行若干操作
+            Perf.stop();停止检测，
+            Perf.printWasted();停止检测之后运行，打印出浪费性能的组件列表
+
+            标准：如果性能的影响不是很大，每次操作浪费几毫秒、十几毫秒，没有必要深究，如果浪费过多影响了用户体验，就必须搞
+
+    2.性能优化：PureRenderMixin优化
+        安装：cnpm i -save react-addons-pure-render-mixin
+        使用：在需要优化的组件上使用
+            import PureRenderMixin from 'react-addons-pure-render-mixin'
+            class List extends React.Compontent{
+                constructor(props,context){
+                    super(props,context);
+
+                    //相当于创建了一个生命周期函数，来判断下一个更新的属性和state是否改变，只有改变的时候才允许更新组件
+                    this.shouldComponentUpdate = PureRenderMixin.shouldComponentUpdate.bind(this);
+                }
+            }
+五、路由react-router(react-dianping-getready-router)
+    1.安装react-router
+        cnpm install --save react-router
+    2.配置router
+        import {Router,Route,IndexRoute} from 'react-router';
+        class RouteMap extends React.Component {
+            updateHandle() {
+                console.log('每次router变化之后都会触发');
+                //统计PV
+            }
+            render() {
+                return (
+                     <Router history={this.props.history} onUpdate={this.updateHandle.bind(this)}>
+                        <Route path='/'   component={App}>
+                            {/*默认的访问组件*/}
+                            <IndexRoute component={Home}/>
+                            <Route path='list' component={List}/>
+                            {/*/:id表示参数*/}
+                            <Route path='detail/:id' component={Detail}/>
+                            <Route path="*" component={NotFound}/>
+                        </Route>
+                    </Router>
+                )
+            }
+        }
+    3.使用router
+        在入口文件使用
+        import {hashHistory} from 'react-router';
+        ReactDOM.render(<RouterMap history={hashHistory} />,document.getElementById('root'));
+
+        hashHistory：规定用url中额hash来表示router，例如：localhost:8080/#/list.
+        browserHistory:它就不使用hash，直接可以这样localhost:8080/list表示，需要服务器端支持
+        在前端能开发中，使用起来都是一样的，只是表示形式不一样。
+    4.页面跳转
+        使用react-router自带的Link标签
+        使用react-router自带的history.push(地址)
+    5.获取参数
+        this.props.params.参数名
+        定义参数路径时使用/:表示后面跟的是一个参数
+    6.进阶
+        显示哪页加载哪页的js方法：
+            js懒加载：huge-apps（解决方案）成本高，收益并不是很大
+六、Redux
+    1.概念
+        Redux是一个数据状态管理插件，搭配React特别合适
+    2.使用场景
+        无论是移动端还是PC端，当你使用React或者vue开发组件化的SPA程序时，组件之间共享信息是一个非常大的问题。例如，用户登陆之后客户端会存储用户
+        信息（如userid、头像等），而系统的很多个组件都会用到这些信息，例如收藏、点赞、评论等。这些组件再用到用户信息时，难道每次使用都重新获取一遍？
+        自然不是这样。因此每个系统都需要一个管理多个组件使用的公共信息的功能，这就是Redux的作用。同理，vue也有相对应的工具，即vuex。
+    3.作用
+        管理多个组件使用的公共信息
+    4.安装
+        npm install --save redux
+        npm install --save react-redux
+    5.使用(不结合React)
+        1).定义规则
+        reducers
+        2).发布规则，根据规则生成store
+        createStore(reducers)
+        3).触发之后执行的操作（监听），可以定义多个
+        store.subscribe(()=>{})Store 允许使用store.subscribe方法设置监听函数，一旦 State 发生变化，就自动执行这个函数。
+        4).触发数据变化
+        store.dispathc({..});
+    6.使用(结合React)
+        1).定义规则(app/reducers)
+        import {combinReducers} from 'redux'
+        const rootReducer = combineReducers({...});可以将不同的规则组合成一个
+        2).生成store(app/store)
+        createStore(rootRdeucer,initialState,
+        //谷歌浏览器的开发者工具
+        window.devToolsExtension?window.devToolsExtendsion():undefined)
+        3).监听（入口文件）
+        const store = fonfigureStore();
+        import Provider from 'react-redux'
+        <Provider store={store}>
+            <App />
+        </Provider>
+        4).在组件中使用（启用监听）
+        使用connect封装组件
+        import * as userinfoActions from '../actions/userinfo'
+        function mapStateToProps(state){
+            return {};
+        }
+        function mapDispathcToProps(dispatch){
+            return {
+                //将userinfoActions对象(app/action里面的函数)和dispatch绑定，使用userinfoAction直接调用actions里面的函数相当于调用dispatch执行
+                userinfoAction: bindActionCreators(userinfoActions, dispatch);
+            };
+        }
+        export default connect(mapStateToProps,mapDispatchToProps)(原组件)；
+七、fecth 获取/提交数据，以及开发环境下的数据Mock【问题：使用fetch不使用代理而直接发送http跨域请求？】
+    1.介绍
+        在React引用jQuery打包之后太大，【JavaScript promise迷你书】资料查看，promise这是js中解决这一问题的钥匙，并作为标准在ES6中发布，
+        fetch使用到了最新的promise；fetch就是一种可代替ajax获取/提交数据的技术，有些高级浏览器已经可以window.fetch使用了，相比于jQuery.ajax它轻量，
+        而且它原声支持promise，更加符合现在的编程习惯。
+    2.安装
+        cnpm install --save whatwg-fetch
+        为了兼容老版本浏览器还需要cnpm install --save es6-promise
+    3.基本使用【资料：图解http  http权威指南】
+        import 'whatwg-fetch'
+        import 'es6-promise'
+        1).get的基本使用
+            var result = fetch('/api/1',{
+                credentials:'include',//表示跨域请求是可以带cookie的
+                headers:{
+                    'Accept':'application/json,text/plain,*/*'//设置http请求的头部信息
+                }
+            });
+            获取数据
+            result.then(res=>{
+                return res.text();//获取字符串格式的数据
+            }).then(text=>{
+                console.log(text)
+            });
+
+            result.then(res=>{
+                return res.json();//获取json格式的数据
+            }).then(json=>{
+                console.log(josn);
+            })
+
+        2).post的基本使用
+            var result = fetch('/api/post',{
+                method:'POST',
+                credentials:'include',
+                headers:{
+                    'Accept':'application/json,text/plain,*/*',
+                    'Content-Type':'application/x-www-form-urlencoded'
+                },
+                //post参数必须的形式
+                body:'a=100&b=200'
+            })
+
+            result.then(res=>{
+                return res.json();
+            }).then(json=>{
+                console.log(json);
+            })
+        3).数据模拟mock（./mock）
+            使用koa来做后端接口的模拟。
+            安装koa
+            使用koa来处理请求并返回数据，
+            步骤一：在package.json的scripts添加：'mock':"node --harmony ./mock/server.js"
+            步骤二：编写server.js文件使用koa技术监听3000端口请求
+            步骤三：在webpackage-dev-server配置代理，proxy：{
+                                                            '/api':{
+                                                                target:'http://localhost:3000',//实际项目中替换成后端路径
+                                                                secure:false
+                                                            }
+                                                          }
+------------------------------------------------------------------------------------------------------------------------
+一、路由
+二、字体图标
+    1.能像文字一样，用css的font-size和color来控制大小和颜色，而且是矢量放大的。如果你用css背景图片，想修改颜色和大小还是劳烦设计的同事协助。
+    2.目前开源字体图标库中，常用的图标都能找到，直接拿来用。
+    3.资源足够小，无须担心性能。
+    4.浏览器已经全面支持，特别是移动端
+    开源css3字体图标社区：font awesome | icommon
+其他：
+    1.jquery.js中等于判断都用===，判断null用==
+三、轮播图
+    https://github.com/voronianski/react-swipe 官网
+    react-swipe
+    安装
+    cnpm install --save swipe-js-iso react-swipe
+四、标签书写习惯
+    单标签闭合
+五、子页面
+    获取数据，将数据交给木偶组件显示
+六、加载更多(点击，见代码)
+七、加载更多(下拉)【知识点，截流】
+    实现思路是：监控 window 的scroll方法，然后获取ref="wrapper"的DOM，利用getBoundingClientRect()方法获得距离底部的高度，然后看是否触发 loadMore 方法。
+    getBoundingClientRect()事件:
+                                用于获取某个元素相对于视窗的位置集合。集合中有top, right, bottom, left等属性,
+                                rectObject.top：元素上边到视窗上边的距离;
+                                rectObject.right：元素右边到视窗左边的距离;
+                                rectObject.bottom：元素下边到视窗上边的距离;
+                                rectObject.left：元素左边到视窗左边的距离;
