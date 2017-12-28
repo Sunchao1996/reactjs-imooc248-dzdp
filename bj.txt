@@ -422,7 +422,31 @@ windows运行时修改内容：慕课网笔记
     实现思路是：监控 window 的scroll方法，然后获取ref="wrapper"的DOM，利用getBoundingClientRect()方法获得距离底部的高度，然后看是否触发 loadMore 方法。
     getBoundingClientRect()事件:
                                 用于获取某个元素相对于视窗的位置集合。集合中有top, right, bottom, left等属性,
-                                rectObject.top：元素上边到视窗上边的距离;
+                                 rectObject.top：元素上边到视窗上边的距离;
                                 rectObject.right：元素右边到视窗左边的距离;
                                 rectObject.bottom：元素下边到视窗上边的距离;
                                 rectObject.left：元素左边到视窗左边的距离;
+八、组件化开发应该把页面划分成最小粒度
+九、补充知识
+    使用分支递进关系来管理代码
+十、路由规则
+    <Route path='/search/:category(/:keyword)'/>
+    path为规则，括号里面表示可选参数，非货号里面表示必填参数
+十一、约束性组件和非约束性组件
+    非约束性组件：
+        针对<input> 使用ref，针对DOM操作
+        查询DOM消耗更多性能
+    约束性组件：
+        使用value onChange事件，将值实时保存到state中，直接从state中获取数据值。
+        React或者Vue都是一种基于数据驱动视图的设计方式，定好数据和视图的规则之后，只更改数据，不直接操作DOM。操作DOM的事情，交给React或者Vue这个框架的代码来搞定
+十二、页面初次渲染和重新渲染
+     从其他地方跳转过来表示初次渲染，componentDidMount函数
+     当在页面中操作想要刷新表示重新渲染，执行componentDidUpdate(prevProps,prevState)函数
+十三、对搜索条件的处理
+     当搜索条件完全一样时，应该不进行后台数据调取
+十四、将一个对象转换成布尔值
+     !! 变量名
+十五、将文本中的<br />标签在标签中使用换行显示
+     <p dangerouslySetInnerHTML={{__html:data.desc}}></p>
+     存在安全性问题：XSS攻击
+
